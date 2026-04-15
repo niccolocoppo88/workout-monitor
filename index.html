@@ -280,6 +280,45 @@
     }
     input[type=number]::-webkit-inner-spin-button,
     input[type=number]::-webkit-outer-spin-button { opacity: 0.5; }
+    .timer-badge {
+      position: fixed;
+      bottom: 76px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1a1a1a;
+      border: 1px solid #d4ff00;
+      color: #d4ff00;
+      padding: 10px 20px;
+      border-radius: 9999px;
+      font-size: 18px;
+      font-weight: 700;
+      z-index: 150;
+      display: none;
+      font-family: 'Inter', monospace;
+      letter-spacing: 0.05em;
+      box-shadow: 0 0 20px rgba(212,255,0,0.2);
+    }
+    .timer-badge.active { display: block; }
+    .timer-badge.done { border-color: #22c55e; color: #22c55e; box-shadow: 0 0 20px rgba(34,197,94,0.2); }
+    .history-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 400;
+      align-items: flex-end;
+      justify-content: center;
+    }
+    .history-modal.open { display: flex; }
+    .history-panel {
+      background: #1a1a1a;
+      border-radius: 20px 20px 0 0;
+      padding: 24px 20px 60px;
+      width: 100%;
+      max-width: 480px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
   </style>
 </head>
 <body>
@@ -381,6 +420,14 @@
       <div class="card" style="margin-bottom:20px;">
         <div class="section-header">Note (opzionale)</div>
         <textarea id="log-notes" class="input-field" style="height:80px; padding-top:10px; resize:none;" placeholder="Come ti sei sentito oggi?"></textarea>
+      </div>
+
+      <div class="card" style="margin-bottom:20px;">
+        <div class="section-header">📷 Foto Progresso (opzionale)</div>
+        <input type="file" id="log-photo" accept="image/*" capture="environment" class="input-field" style="padding:8px;" />
+        <div id="log-photo-preview" style="margin-top:8px; display:none;">
+          <img id="photo-preview-img" style="max-width:200px; max-height:150px; border-radius:8px; object-fit:cover;" />
+        </div>
       </div>
 
       <button class="btn-primary" onclick="saveWorkout()" style="margin-bottom:24px;">
@@ -524,6 +571,16 @@
           <option value="avanzato">🔥 Avanzato</option>
         </select>
       </div>
+      <div>
+        <label style="font-size:12px; color:#a3a3a3; display:block; margin-bottom:6px;">API Key MiniMax</label>
+        <input type="password" id="settings-apikey" class="input-field" placeholder="sk-cp-..." />
+        <div style="font-size:11px; color:#666; margin-top:4px;">Salvata nel profilo locale</div>
+      </div>
+      <div>
+        <label style="font-size:12px; color:#a3a3a3; display:block; margin-bottom:6px;">Timer Recupero (secondi)</label>
+        <input type="number" id="settings-recovery-timer" class="input-field" min="30" max="300" step="10" placeholder="90" />
+        <div style="font-size:11px; color:#666; margin-top:4px;">Tra un set e l'altro (30-300 sec)</div>
+      </div>
     </div>
     <button class="btn-primary" onclick="saveSettings()">Salva</button>
   </div>
@@ -532,13 +589,28 @@
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
+<!-- Timer Badge (fixed above tab bar) -->
+<div class="timer-badge" id="timer-badge">⏱️ <span id="timer-display">00:00</span></div>
+
+<!-- History Modal -->
+<div class="history-modal" id="history-modal" onclick="closeHistoryModalOutside(event)">
+  <div class="history-panel">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+      <div style="font-size:18px; font-weight:700;" id="history-modal-title">Dettaglio Workout</div>
+      <button onclick="closeHistoryModal()" style="background:#262626; border:none; border-radius:9999px; width:32px; height:32px; cursor:pointer; color:#f5f5f5; font-size:16px;">✕</button>
+    </div>
+    <div id="history-modal-content"></div>
+  </div>
+</div>
+
 <script>
 // =============================================
 // CONSTANTS & UTILS
 // =============================================
 const KEYS = {
   SESSIONS: 'workout_monitor:sessions',
-  PROFILE: 'workout_monitor:profile'
+  PROFILE: 'workout_monitor:profile',
+  PHOTOS: 'workout_monitor:photos'
 };
 
 const MUSCLE_COLORS = {
@@ -589,6 +661,159 @@ function showToast(msg, duration=2500) {
   setTimeout(() => t.classList.remove('show'), duration);
 }
 
+// Recovery Timer (CLA-58)
+window.timerActive = false;
+window.timerSecondsRemaining = 0;
+window.timerStartedAt = null;
+let timerInterval = null;
+
+function startRecoveryTimer(durationSeconds) {
+  if (timerInterval) clearInterval(timerInterval);
+  window.timerActive = true;
+  window.timerSecondsRemaining = durationSeconds;
+  window.timerStartedAt = Date.now();
+  const badge = document.getElementById('timer-badge');
+  badge.classList.remove('done');
+  badge.classList.add('active');
+  updateTimerDisplayValue(durationSeconds);
+  timerInterval = setInterval(tickTimer, 1000);
+}
+
+function tickTimer() {
+  if (!window.timerActive) return;
+  const elapsed = Math.floor((Date.now() - window.timerStartedAt) / 1000);
+  const remaining = Math.max(0, window.timerSecondsRemaining - elapsed);
+  updateTimerDisplayValue(remaining);
+  if (remaining === 0) {
+    clearInterval(timerInterval);
+    window.timerActive = false;
+    const badge = document.getElementById('timer-badge');
+    badge.classList.remove('active');
+    badge.classList.add('done');
+    document.getElementById('timer-display').textContent = '✓ Recupero!';
+    playBeep();
+    setTimeout(() => {
+      badge.classList.remove('done');
+    }, 3000);
+  }
+}
+
+function updateTimerDisplayValue(seconds) {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  document.getElementById('timer-display').textContent =
+    `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+
+function playBeep() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = 880;
+    gain.gain.value = 0.3;
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.5);
+  } catch(e) {}
+}
+
+// History Modal (CLA-59)
+function openHistoryModal(sessionId) {
+  const sessions = getSessions();
+  const session = sessions.find(s => s.id === sessionId);
+  if (!session) return;
+  const color = MUSCLE_COLORS[session.muscle] || '#666';
+  const emoji = MUSCLE_EMOJI[session.muscle] || '🏋️';
+  document.getElementById('history-modal-title').textContent = formatDate(session.date);
+  let photosHtml = '';
+  if (session.photoIds && session.photoIds.length > 0) {
+    const photos = getPhotos();
+    photosHtml = '<div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;">' +
+      session.photoIds.map(pid => {
+        const p = photos[pid];
+        if (!p) return '';
+        return `<img src="${p.data}" style="width:80px; height:80px; object-fit:cover; border-radius:8px; cursor:pointer;" />`;
+      }).join('') + '</div>';
+  }
+  document.getElementById('history-modal-content').innerHTML = `
+    <div style="margin-bottom:16px;">
+      <span class="muscle-badge" style="background:${color}22;color:${color};">${emoji} ${capitalize(session.muscle)}</span>
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px;">
+      <div class="stat-card" style="padding:12px;">
+        <div style="font-size:20px; font-weight:700; color:#d4ff00;">${session.totalVolume > 0 ? formatVolume(session.totalVolume) : '—'}</div>
+        <div class="stat-label">Volume</div>
+      </div>
+      <div class="stat-card" style="padding:12px;">
+        <div style="font-size:20px; font-weight:700; color:#d4ff00;">${session.totalSets}</div>
+        <div class="stat-label">Serie</div>
+      </div>
+    </div>
+    ${session.duration ? `<div style="font-size:13px; color:#a3a3a3; margin-bottom:12px;">⏱️ ${session.duration} min</div>` : ''}
+    ${session.notes ? `<div style="font-size:13px; color:#a3a3a3; font-style:italic; margin-bottom:12px;">"${session.notes}"</div>` : ''}
+    <div class="section-header">Esercizi</div>
+    <div style="display:grid; gap:8px;">
+      ${session.exercises.map(ex => `
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 12px; background:#262626; border-radius:8px;">
+          <div style="font-size:14px; font-weight:500;">${ex.name}</div>
+          <div style="font-size:12px; color:#a3a3a3;">${ex.sets}×${ex.reps} · ${ex.weight}kg</div>
+        </div>
+      `).join('')}
+    </div>
+    ${photosHtml}
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:20px;">
+      <button class="btn-secondary" onclick="editSessionFromModal('${session.id}')" style="font-size:13px;">✏️ Modifica</button>
+      <button class="btn-danger" onclick="deleteSessionFromModal('${session.id}')">🗑 Elimina</button>
+    </div>
+  `;
+  document.getElementById('history-modal').classList.add('open');
+}
+
+function closeHistoryModal() {
+  document.getElementById('history-modal').classList.remove('open');
+}
+
+function closeHistoryModalOutside(e) {
+  if (e.target === document.getElementById('history-modal')) closeHistoryModal();
+}
+
+function editSessionFromModal(id) {
+  closeHistoryModal();
+  // Use existing editSession logic
+  const sessions = getSessions();
+  const session = sessions.find(s => s.id === id);
+  if (!session) { showToast('❌ Workout non trovato'); return; }
+  document.getElementById('log-date').value = session.date;
+  document.getElementById('log-muscle').value = session.muscle;
+  document.getElementById('log-goal').value = session.goal || 'ipertrofia';
+  document.getElementById('log-notes').value = session.notes || '';
+  document.getElementById('log-duration').value = session.duration || '';
+  exerciseRows = session.exercises.map(ex => ({
+    id: ex.id || uuid(),
+    name: ex.name,
+    sets: ex.sets,
+    reps: ex.reps,
+    weight: ex.weight
+  }));
+  renderExerciseRows();
+  document.getElementById('workout-form').dataset.editId = id;
+  switchView('log');
+  showToast('✏️ Modifica workout');
+}
+
+function deleteSessionFromModal(id) {
+  if (!confirm('Eliminare questo workout?')) return;
+  closeHistoryModal();
+  let sessions = getSessions().filter(s => s.id !== id);
+  saveSessions(sessions);
+  renderHistory();
+  renderHome();
+  showToast('🗑 Workout eliminato');
+}
+
 // =============================================
 // DATA LAYER
 // =============================================
@@ -618,6 +843,7 @@ function getProfile() {
     theme: 'dark',
     trackDuration: true,
     trackRPE: false,
+    recoveryTimerSeconds: 90,
     createdAt: now(),
     updatedAt: now(),
     cachedSuggestions: []
@@ -629,6 +855,25 @@ function getProfile() {
 function saveProfile(profile) {
   profile.updatedAt = now();
   localStorage.setItem(KEYS.PROFILE, JSON.stringify(profile));
+}
+
+function getPhotos() {
+  try { return JSON.parse(localStorage.getItem(KEYS.PHOTOS) || '{}'); }
+  catch { return {}; }
+}
+
+function savePhotos(photos) {
+  localStorage.setItem(KEYS.PHOTOS, JSON.stringify(photos));
+}
+
+function getTotalStorageSize() {
+  let total = 0;
+  for (let key in localStorage) {
+    if (key.startsWith('workout_monitor:')) {
+      total += localStorage.getItem(key).length * 2;
+    }
+  }
+  return total;
 }
 
 function computeMetrics(exercises) {
@@ -718,26 +963,33 @@ function renderHome() {
 
 function computeStreak(sessions) {
   if (!sessions.length) return 0;
-  const dates = [...new Set(sessions.map(s => s.date))].sort().reverse();
+  const today = new Date();
+  const todayLocale = today.toLocaleDateString('it-IT'); // locale-aware year-month-day
+  const todayCheck = new Date(todayLocale + 'T00:00:00');
+
+  // Get unique dates sorted desc, using locale date string
+  const dateSet = new Set(sessions.map(s => {
+    const d = new Date(s.date.includes('T') ? s.date : s.date + 'T00:00:00');
+    return d.toLocaleDateString('it-IT');
+  }));
+  const dates = [...dateSet].sort().reverse(); // desc
+
   let streak = 0;
-  const today = localDateISO();
-  let check = today;
-  for (const d of dates) {
-    if (d === check) {
+  let check = new Date(todayCheck);
+
+  for (const dStr of dates) {
+    const d = new Date(dStr + 'T00:00:00');
+    if (d.getTime() === check.getTime()) {
       streak++;
-      const prev = new Date(check + 'T00:00:00');
-      prev.setDate(prev.getDate() - 1);
-      check = prev.toISOString().split('T')[0];
-    } else if (streak === 0 && d < check) {
-      // Allow yesterday to count
-      const yesterday = new Date(today + 'T00:00:00');
+      check.setDate(check.getDate() - 1);
+    } else if (streak === 0) {
+      // Allow yesterday as start
+      const yesterday = new Date(todayCheck);
       yesterday.setDate(yesterday.getDate() - 1);
-      const yISO = yesterday.toISOString().split('T')[0];
-      if (d === yISO) {
+      if (d.getTime() === yesterday.getTime()) {
         streak++;
-        const prev = new Date(d + 'T00:00:00');
-        prev.setDate(prev.getDate() - 1);
-        check = prev.toISOString().split('T')[0];
+        check = new Date(yesterday);
+        check.setDate(check.getDate() - 1);
       } else break;
     } else break;
   }
@@ -748,7 +1000,7 @@ function renderSessionCard(session, expandable=true) {
   const color = MUSCLE_COLORS[session.muscle] || '#666';
   const emoji = MUSCLE_EMOJI[session.muscle] || '🏋️';
   return `
-  <div class="session-item" onclick="${expandable ? `toggleSession('${session.id}')` : `switchView('history')`}">
+  <div class="session-item" onclick="${expandable ? `openHistoryModal('${session.id}')` : `switchView('history')`}">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;">
       <div>
         <span class="muscle-badge" style="background:${color}22;color:${color};margin-bottom:6px;">
@@ -762,23 +1014,6 @@ function renderSessionCard(session, expandable=true) {
         <div style="font-size:11px;color:#666;">volume</div>
       </div>
     </div>
-    ${expandable ? `
-    <div class="session-detail" id="detail-${session.id}">
-      <div style="display:grid;gap:8px;">
-        ${session.exercises.map(ex => `
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:#262626;border-radius:8px;">
-            <div style="font-size:13px;font-weight:500;">${ex.name}</div>
-            <div style="font-size:12px;color:#a3a3a3;">${ex.sets}×${ex.reps} · ${ex.weight}kg</div>
-          </div>
-        `).join('')}
-        ${session.notes ? `<div style="font-size:12px;color:#a3a3a3;padding:4px 0;font-style:italic;">"${session.notes}"</div>` : ''}
-        ${session.duration ? `<div style="font-size:12px;color:#a3a3a3;">⏱️ ${session.duration} min</div>` : ''}
-        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:4px;">
-          <button class="btn-secondary" onclick="event.stopPropagation();editSession('${session.id}')">✏️ Modifica</button>
-          <button class="btn-danger" onclick="event.stopPropagation();deleteSession('${session.id}')">🗑 Elimina</button>
-        </div>
-      </div>
-    </div>` : ''}
   </div>`;
 }
 
@@ -902,6 +1137,48 @@ function saveWorkout() {
   const editId = document.getElementById('workout-form').dataset.editId;
   const sessions = getSessions();
 
+  // Process photo (CLA-60) — only for new workouts
+  let photoIds = [];
+  if (!editId) {
+    const photoInput = document.getElementById('log-photo');
+    if (photoInput && photoInput.files && photoInput.files.length > 0) {
+      const file = photoInput.files[0];
+      const currentSize = getTotalStorageSize();
+      const fileSizeEstimate = file.size * 2;
+      if (currentSize + fileSizeEstimate <= 4.5 * 1024 * 1024) {
+        try {
+          const photoData = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = e => resolve(e.target.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+          const img = new Image();
+          const resizedData = await new Promise((resolve, reject) => {
+            img.onload = () => {
+              const MAX_W = 800;
+              let w = img.width, h = img.height;
+              if (w > MAX_W) { h = h * MAX_W / w; w = MAX_W; }
+              const canvas = document.createElement('canvas');
+              canvas.width = w; canvas.height = h;
+              canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+              resolve(canvas.toDataURL('image/jpeg', 0.8));
+            };
+            img.onerror = reject;
+            img.src = photoData;
+          });
+          const pid = uuid();
+          const photos = getPhotos();
+          photos[pid] = { data: resizedData, createdAt: now() };
+          savePhotos(photos);
+          photoIds = [pid];
+        } catch(e) { console.error('Photo error:', e); }
+      } else {
+        showToast('⚠️ Spazio insufficiente per salvare la foto');
+      }
+    }
+  }
+
   if (editId) {
     const idx = sessions.findIndex(s => s.id === editId);
     if (idx !== -1) {
@@ -930,15 +1207,21 @@ function saveWorkout() {
       exercises,
       notes: notes || undefined,
       duration,
+      photoIds,
       ...metrics
     };
     sessions.push(session);
+    // Start recovery timer (CLA-58) — only for new workouts
+    const profile = getProfile();
+    if (profile.recoveryTimerSeconds && profile.recoveryTimerSeconds > 0) {
+      startRecoveryTimer(profile.recoveryTimerSeconds);
+    }
     showToast('✅ Workout salvato!');
   }
 
   saveSessions(sessions);
   initLogForm();
-  setTimeout(() => switchView('home'), 1000);
+  setTimeout(() => switchView('home'), 1500);
 }
 
 // =============================================
@@ -978,8 +1261,8 @@ function renderHistory() {
 function initAIView() {
   const profile = getProfile();
   document.getElementById('ai-goal').value = profile.goal || 'ipertrofia';
-  // Load saved API key
-  const savedKey = localStorage.getItem('workout_monitor:apikey') || '';
+  // Pre-populate from profile.miniMaxApiKey (fallback to legacy localStorage key)
+  const savedKey = profile.miniMaxApiKey || localStorage.getItem('workout_monitor:apikey') || '';
   document.getElementById('ai-apikey').value = savedKey;
 }
 
@@ -1161,6 +1444,8 @@ function openSettings() {
   document.getElementById('settings-name').value = profile.name || '';
   document.getElementById('settings-goal').value = profile.goal || 'ipertrofia';
   document.getElementById('settings-level').value = profile.level || 'intermedio';
+  document.getElementById('settings-apikey').value = profile.miniMaxApiKey || '';
+  document.getElementById('settings-recovery-timer').value = profile.recoveryTimerSeconds || 90;
   document.getElementById('settings-modal').classList.add('open');
 }
 
@@ -1177,6 +1462,9 @@ function saveSettings() {
   profile.name = document.getElementById('settings-name').value.trim() || 'Nico';
   profile.goal = document.getElementById('settings-goal').value;
   profile.level = document.getElementById('settings-level').value;
+  profile.miniMaxApiKey = document.getElementById('settings-apikey').value.trim() || undefined;
+  const timerVal = parseInt(document.getElementById('settings-recovery-timer').value);
+  profile.recoveryTimerSeconds = (!isNaN(timerVal) && timerVal >= 30 && timerVal <= 300) ? timerVal : 90;
   saveProfile(profile);
   closeSettings();
   renderHome();
@@ -1190,6 +1478,25 @@ function capitalize(str) {
   if (!str) return '';
   return str.trim().toLowerCase().replace(/^./, c => c.toUpperCase());
 }
+
+// Photo preview setup
+document.addEventListener('DOMContentLoaded', function() {
+  const photoInput = document.getElementById('log-photo');
+  if (photoInput) {
+    photoInput.addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const preview = document.getElementById('log-photo-preview');
+      const img = document.getElementById('photo-preview-img');
+      const reader = new FileReader();
+      reader.onload = function(ev) {
+        img.src = ev.target.result;
+        preview.style.display = 'block';
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+});
 
 // =============================================
 // INIT
