@@ -731,8 +731,7 @@ function startRecoveryTimer(durationSeconds) {
   window.timerStartedAt = Date.now();
   persistTimerState();
   const badge = document.getElementById('timer-badge');
-  badge.classList.remove('done');
-  badge.classList.add('active');
+  if (badge) { badge.classList.remove('done'); badge.classList.add('active'); }
   updateTimerDisplayValue(durationSeconds);
   timerInterval = setInterval(tickTimer, 1000);
 }
@@ -747,13 +746,11 @@ function tickTimer() {
     window.timerActive = false;
     persistTimerState();
     const badge = document.getElementById('timer-badge');
-    badge.classList.remove('active');
-    badge.classList.add('done');
-    document.getElementById('timer-display').textContent = '✓ Recupero!';
+    const display = document.getElementById('timer-display');
+    if (badge) { badge.classList.remove('active'); badge.classList.add('done'); }
+    if (display) display.textContent = '✓ Recupero!';
     playBeep();
-    setTimeout(() => {
-      badge.classList.remove('done');
-    }, 3000);
+    setTimeout(() => { if (badge) badge.classList.remove('done'); }, 3000);
   }
 }
 
@@ -1575,8 +1572,7 @@ function restoreTimerFromStorage() {
     window.timerSecondsRemaining = seconds;
     window.timerStartedAt = startedAt;
     const badge = document.getElementById('timer-badge');
-    badge.classList.remove('done');
-    badge.classList.add('active');
+    if (badge) { badge.classList.remove('done'); badge.classList.add('active'); }
     updateTimerDisplayValue(remaining);
     timerInterval = setInterval(tickTimer, 1000);
   } catch(e) {}
