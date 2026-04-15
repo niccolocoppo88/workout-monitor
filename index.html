@@ -1,0 +1,1175 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Workout Monitor 🏋️</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            lime: { DEFAULT: '#d4ff00', dark: '#b8e600', muted: 'rgba(212,255,0,0.15)' },
+            bg: { primary: '#0f0f0f', secondary: '#1a1a1a', tertiary: '#262626' },
+            txt: { primary: '#f5f5f5', secondary: '#a3a3a3', muted: '#666666' },
+            muscle: {
+              pettorali: '#3b82f6',
+              schiena: '#8b5cf6',
+              gambe: '#22c55e',
+              spalle: '#f59e0b',
+              braccia: '#ec4899',
+              core: '#06b6d4'
+            }
+          },
+          fontFamily: { sans: ['Inter', '-apple-system', 'sans-serif'] },
+          maxWidth: { app: '480px' },
+          height: { tab: '64px' }
+        }
+      }
+    }
+  </script>
+  <style>
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      background: #0f0f0f;
+      color: #f5f5f5;
+      font-family: 'Inter', -apple-system, sans-serif;
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+    }
+    #app {
+      width: 100%;
+      max-width: 480px;
+      position: relative;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .view { display: none; flex: 1; overflow-y: auto; padding-bottom: 80px; }
+    .view.active { display: block; }
+    .tab-bar {
+      position: fixed;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100%;
+      max-width: 480px;
+      height: 64px;
+      background: #1a1a1a;
+      border-top: 1px solid #262626;
+      display: flex;
+      z-index: 100;
+    }
+    .tab-btn {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      color: #666666;
+      font-size: 10px;
+      font-family: 'Inter', sans-serif;
+      font-weight: 500;
+      letter-spacing: 0.03em;
+      transition: color 150ms;
+      padding: 8px 4px;
+      min-height: 44px;
+    }
+    .tab-btn .tab-icon { font-size: 22px; line-height: 1; }
+    .tab-btn.active { color: #d4ff00; }
+    .tab-btn.active .tab-icon-wrap {
+      background: rgba(212,255,0,0.15);
+      border-radius: 12px;
+      padding: 4px 12px;
+    }
+    .card {
+      background: #1a1a1a;
+      border-radius: 12px;
+      padding: 16px;
+    }
+    .btn-primary {
+      background: #d4ff00;
+      color: #0f0f0f;
+      border: none;
+      border-radius: 12px;
+      height: 48px;
+      font-weight: 600;
+      font-family: 'Inter', sans-serif;
+      font-size: 15px;
+      cursor: pointer;
+      transition: background 150ms, transform 100ms;
+      width: 100%;
+    }
+    .btn-primary:hover { background: #b8e600; }
+    .btn-primary:active { transform: scale(0.97); }
+    .btn-secondary {
+      background: #262626;
+      color: #f5f5f5;
+      border: none;
+      border-radius: 8px;
+      height: 36px;
+      font-weight: 500;
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background 150ms;
+      padding: 0 14px;
+    }
+    .btn-secondary:hover { background: #333; }
+    .btn-danger {
+      background: transparent;
+      color: #ef4444;
+      border: 1px solid #ef444433;
+      border-radius: 8px;
+      height: 32px;
+      font-size: 13px;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      padding: 0 10px;
+      transition: background 150ms;
+    }
+    .btn-danger:hover { background: rgba(239,68,68,0.1); }
+    .input-field {
+      background: #262626;
+      color: #f5f5f5;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      height: 44px;
+      padding: 0 12px;
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      width: 100%;
+      transition: border-color 150ms;
+      outline: none;
+    }
+    .input-field:focus { border-color: #d4ff00; }
+    .input-field::placeholder { color: #666; }
+    select.input-field { cursor: pointer; }
+    .muscle-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 10px;
+      border-radius: 9999px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+    }
+    .stat-card {
+      background: #1a1a1a;
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .stat-number {
+      font-size: 32px;
+      font-weight: 700;
+      color: #d4ff00;
+      letter-spacing: -0.025em;
+      line-height: 1;
+    }
+    .stat-label {
+      font-size: 12px;
+      color: #a3a3a3;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .exercise-row {
+      background: #262626;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+    .session-item {
+      background: #1a1a1a;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 12px;
+      cursor: pointer;
+      transition: background 150ms;
+    }
+    .session-item:hover { background: #222; }
+    .session-detail { display: none; margin-top: 12px; padding-top: 12px; border-top: 1px solid #262626; }
+    .session-detail.open { display: block; }
+    .ai-suggestion-card {
+      background: #1a1a1a;
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 10px;
+      border-left: 3px solid #d4ff00;
+    }
+    .loading-spinner {
+      width: 32px; height: 32px;
+      border: 3px solid #262626;
+      border-top-color: #d4ff00;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .toast {
+      position: fixed;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: #1a1a1a;
+      color: #f5f5f5;
+      padding: 10px 20px;
+      border-radius: 9999px;
+      font-size: 14px;
+      font-weight: 500;
+      border: 1px solid #262626;
+      opacity: 0;
+      transition: opacity 200ms, transform 200ms;
+      z-index: 200;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .filter-btn {
+      padding: 6px 14px;
+      border-radius: 9999px;
+      font-size: 12px;
+      font-weight: 600;
+      border: 1px solid #262626;
+      cursor: pointer;
+      background: #1a1a1a;
+      color: #a3a3a3;
+      transition: all 150ms;
+      white-space: nowrap;
+    }
+    .filter-btn.active { background: #d4ff00; color: #0f0f0f; border-color: #d4ff00; }
+    .settings-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 300;
+      align-items: flex-end;
+      justify-content: center;
+    }
+    .settings-modal.open { display: flex; }
+    .settings-panel {
+      background: #1a1a1a;
+      border-radius: 20px 20px 0 0;
+      padding: 24px 20px 40px;
+      width: 100%;
+      max-width: 480px;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+    .section-header {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #666;
+      margin-bottom: 12px;
+      margin-top: 4px;
+    }
+    input[type=number]::-webkit-inner-spin-button,
+    input[type=number]::-webkit-outer-spin-button { opacity: 0.5; }
+  </style>
+</head>
+<body>
+
+<div id="app">
+  <!-- =================== HOME VIEW =================== -->
+  <div id="view-home" class="view active">
+    <div style="padding: 20px 16px 0;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+        <div>
+          <div style="font-size:22px; font-weight:700; letter-spacing:-0.025em;">Ciao, <span id="home-username">Nico</span> 💪</div>
+          <div style="font-size:13px; color:#a3a3a3; margin-top:2px;" id="home-date"></div>
+        </div>
+        <button onclick="openSettings()" style="background:#1a1a1a; border:none; border-radius:9999px; width:40px; height:40px; font-size:18px; cursor:pointer;" title="Impostazioni">⚙️</button>
+      </div>
+
+      <!-- Stats grid -->
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px;">
+        <div class="stat-card">
+          <div class="stat-number" id="stat-sessions-week">0</div>
+          <div class="stat-label">Sessioni<br>questa settimana</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="stat-volume-week" style="font-size:22px;">0 kg</div>
+          <div class="stat-label">Volume<br>settimanale</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="stat-streak" style="color:#22c55e;">0🔥</div>
+          <div class="stat-label">Streak<br>giorni</div>
+        </div>
+        <div class="stat-card">
+          <div style="font-size:13px; font-weight:600; color:#f5f5f5; line-height:1.3;" id="stat-last-workout">—</div>
+          <div class="stat-label" style="margin-top:4px;">Ultimo<br>workout</div>
+        </div>
+      </div>
+
+      <!-- Quick log CTA -->
+      <button class="btn-primary" onclick="switchView('log')" style="margin-bottom:20px;">
+        + Registra Allenamento
+      </button>
+
+      <!-- Recent sessions -->
+      <div class="section-header">Recenti</div>
+      <div id="home-recent"></div>
+    </div>
+  </div>
+
+  <!-- =================== LOG VIEW =================== -->
+  <div id="view-log" class="view">
+    <div style="padding: 20px 16px 0;">
+      <div style="font-size:22px; font-weight:700; letter-spacing:-0.025em; margin-bottom:20px;">📝 Nuovo Workout</div>
+
+      <div class="card" style="margin-bottom:16px;">
+        <div class="section-header">Data & Contesto</div>
+        <div style="display:grid; gap:10px;">
+          <div>
+            <label style="font-size:12px; color:#a3a3a3; display:block; margin-bottom:6px;">Data</label>
+            <input type="date" id="log-date" class="input-field" />
+          </div>
+          <div>
+            <label style="font-size:12px; color:#a3a3a3; display:block; margin-bottom:6px;">Muscolo Target</label>
+            <select id="log-muscle" class="input-field">
+              <option value="">Seleziona muscolo...</option>
+              <option value="pettorali">💪 Pettorali</option>
+              <option value="schiena">🦅 Schiena</option>
+              <option value="gambe">🦵 Gambe</option>
+              <option value="spalle">🏋️ Spalle</option>
+              <option value="braccia">💪 Braccia</option>
+              <option value="core">🎯 Core</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:12px; color:#a3a3a3; display:block; margin-bottom:6px;">Obiettivo</label>
+            <select id="log-goal" class="input-field">
+              <option value="ipertrofia">📈 Ipertrofia</option>
+              <option value="forza">⚡ Forza</option>
+              <option value="definizione">🔥 Definizione</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:12px; color:#a3a3a3; display:block; margin-bottom:6px;">Durata (min)</label>
+            <input type="number" id="log-duration" class="input-field" placeholder="es. 60" min="1" max="300" />
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <div class="section-header" style="margin-bottom:0;">Esercizi</div>
+          <button class="btn-secondary" onclick="addExerciseRow()" style="font-size:13px;">+ Aggiungi</button>
+        </div>
+        <div id="exercises-container"></div>
+        <div id="exercises-empty" style="text-align:center; color:#666; font-size:13px; padding:16px 0;">
+          Aggiungi almeno un esercizio 👆
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:20px;">
+        <div class="section-header">Note (opzionale)</div>
+        <textarea id="log-notes" class="input-field" style="height:80px; padding-top:10px; resize:none;" placeholder="Come ti sei sentito oggi?"></textarea>
+      </div>
+
+      <button class="btn-primary" onclick="saveWorkout()" style="margin-bottom:24px;">
+        💾 Salva Workout
+      </button>
+    </div>
+  </div>
+
+  <!-- =================== HISTORY VIEW =================== -->
+  <div id="view-history" class="view">
+    <div style="padding: 20px 16px 0;">
+      <div style="font-size:22px; font-weight:700; letter-spacing:-0.025em; margin-bottom:16px;">📊 Storico</div>
+
+      <!-- Muscle filter -->
+      <div style="overflow-x:auto; padding-bottom:8px; margin-bottom:16px;">
+        <div id="history-filters" style="display:flex; gap:8px; width:max-content;">
+          <button class="filter-btn active" data-muscle="all" onclick="filterHistory('all')">Tutti</button>
+          <button class="filter-btn" data-muscle="pettorali" onclick="filterHistory('pettorali')">Pettorali</button>
+          <button class="filter-btn" data-muscle="schiena" onclick="filterHistory('schiena')">Schiena</button>
+          <button class="filter-btn" data-muscle="gambe" onclick="filterHistory('gambe')">Gambe</button>
+          <button class="filter-btn" data-muscle="spalle" onclick="filterHistory('spalle')">Spalle</button>
+          <button class="filter-btn" data-muscle="braccia" onclick="filterHistory('braccia')">Braccia</button>
+          <button class="filter-btn" data-muscle="core" onclick="filterHistory('core')">Core</button>
+        </div>
+      </div>
+
+      <div id="history-list"></div>
+      <div id="history-empty" style="display:none; text-align:center; padding:40px 0; color:#666;">
+        <div style="font-size:40px; margin-bottom:12px;">📭</div>
+        <div style="font-size:15px; font-weight:500;">Nessun workout trovato</div>
+        <div style="font-size:13px; margin-top:4px;">Inizia a loggare i tuoi allenamenti!</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =================== AI VIEW =================== -->
+  <div id="view-ai" class="view">
+    <div style="padding: 20px 16px 0;">
+      <div style="font-size:22px; font-weight:700; letter-spacing:-0.025em; margin-bottom:6px;">🤖 Suggerimenti AI</div>
+      <div style="font-size:13px; color:#a3a3a3; margin-bottom:20px;">Esercizi personalizzati basati sul tuo obiettivo</div>
+
+      <div class="card" style="margin-bottom:16px;">
+        <div style="display:grid; gap:12px;">
+          <div>
+            <label style="font-size:12px; color:#a3a3a3; display:block; margin-bottom:6px;">Muscolo Target</label>
+            <select id="ai-muscle" class="input-field">
+              <option value="pettorali">💪 Pettorali</option>
+              <option value="schiena">🦅 Schiena</option>
+              <option value="gambe">🦵 Gambe</option>
+              <option value="spalle">🏋️ Spalle</option>
+              <option value="braccia">💪 Braccia</option>
+              <option value="core">🎯 Core</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:12px; color:#a3a3a3; display:block; margin-bottom:6px;">Obiettivo</label>
+            <select id="ai-goal" class="input-field">
+              <option value="ipertrofia">📈 Ipertrofia</option>
+              <option value="forza">⚡ Forza</option>
+              <option value="definizione">🔥 Definizione</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:12px; color:#a3a3a3; display:block; margin-bottom:6px;">API Key MiniMax</label>
+            <input type="password" id="ai-apikey" class="input-field" placeholder="sk-cp-..." />
+            <div style="font-size:11px; color:#666; margin-top:4px;">Salvata localmente, mai inviata altrove</div>
+          </div>
+        </div>
+      </div>
+
+      <button class="btn-primary" onclick="getAISuggestions()" style="margin-bottom:20px;" id="ai-btn">
+        ✨ Genera Suggerimenti
+      </button>
+
+      <div id="ai-loading" style="display:none; text-align:center; padding:30px 0;">
+        <div class="loading-spinner" style="margin:0 auto 12px;"></div>
+        <div style="font-size:14px; color:#a3a3a3;">Chiedendo all'AI...</div>
+      </div>
+
+      <div id="ai-cache-notice" style="display:none; font-size:11px; color:#666; margin-bottom:12px; text-align:center;">
+        📦 Risultati dalla cache (validi 24h)
+      </div>
+
+      <div id="ai-results"></div>
+
+      <div id="ai-empty" style="text-align:center; padding:40px 0; color:#666;">
+        <div style="font-size:40px; margin-bottom:12px;">🤖</div>
+        <div style="font-size:14px;">Seleziona muscolo e obiettivo<br>e premi "Genera Suggerimenti"</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =================== BOTTOM TAB BAR =================== -->
+  <nav class="tab-bar">
+    <button class="tab-btn active" id="tab-home" onclick="switchView('home')">
+      <div class="tab-icon-wrap"><span class="tab-icon">🏠</span></div>
+      <span>Home</span>
+    </button>
+    <button class="tab-btn" id="tab-log" onclick="switchView('log')">
+      <div class="tab-icon-wrap"><span class="tab-icon">📝</span></div>
+      <span>Log</span>
+    </button>
+    <button class="tab-btn" id="tab-history" onclick="switchView('history')">
+      <div class="tab-icon-wrap"><span class="tab-icon">📊</span></div>
+      <span>Storico</span>
+    </button>
+    <button class="tab-btn" id="tab-ai" onclick="switchView('ai')">
+      <div class="tab-icon-wrap"><span class="tab-icon">🤖</span></div>
+      <span>AI</span>
+    </button>
+  </nav>
+</div>
+
+<!-- Settings Modal -->
+<div class="settings-modal" id="settings-modal" onclick="closeSettingsOutside(event)">
+  <div class="settings-panel">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+      <div style="font-size:18px; font-weight:700;">⚙️ Impostazioni</div>
+      <button onclick="closeSettings()" style="background:#262626; border:none; border-radius:9999px; width:32px; height:32px; cursor:pointer; color:#f5f5f5; font-size:16px;">✕</button>
+    </div>
+    <div class="section-header">Profilo</div>
+    <div style="display:grid; gap:10px; margin-bottom:20px;">
+      <div>
+        <label style="font-size:12px; color:#a3a3a3; display:block; margin-bottom:6px;">Nome</label>
+        <input type="text" id="settings-name" class="input-field" placeholder="Il tuo nome" />
+      </div>
+      <div>
+        <label style="font-size:12px; color:#a3a3a3; display:block; margin-bottom:6px;">Obiettivo principale</label>
+        <select id="settings-goal" class="input-field">
+          <option value="ipertrofia">📈 Ipertrofia</option>
+          <option value="forza">⚡ Forza</option>
+          <option value="definizione">🔥 Definizione</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:12px; color:#a3a3a3; display:block; margin-bottom:6px;">Livello</label>
+        <select id="settings-level" class="input-field">
+          <option value="principiante">🌱 Principiante</option>
+          <option value="intermedio">💪 Intermedio</option>
+          <option value="avanzato">🔥 Avanzato</option>
+        </select>
+      </div>
+    </div>
+    <button class="btn-primary" onclick="saveSettings()">Salva</button>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// =============================================
+// CONSTANTS & UTILS
+// =============================================
+const KEYS = {
+  SESSIONS: 'workout_monitor:sessions',
+  PROFILE: 'workout_monitor:profile'
+};
+
+const MUSCLE_COLORS = {
+  pettorali: '#3b82f6',
+  schiena: '#8b5cf6',
+  gambe: '#22c55e',
+  spalle: '#f59e0b',
+  braccia: '#ec4899',
+  core: '#06b6d4'
+};
+
+const MUSCLE_EMOJI = {
+  pettorali: '💪', schiena: '🦅', gambe: '🦵',
+  spalle: '🏋️', braccia: '💪', core: '🎯'
+};
+
+function uuid() { return crypto.randomUUID(); }
+
+function now() { return new Date().toISOString(); }
+
+function todayISO() {
+  const d = new Date();
+  return d.toFullYear ? d.toFullYear() : d.toISOString().split('T')[0];
+}
+
+function localDateISO() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+
+function formatDate(isoStr) {
+  if (!isoStr) return '—';
+  const d = new Date(isoStr.includes('T') ? isoStr : isoStr + 'T00:00:00');
+  return d.toLocaleDateString('it-IT', { weekday:'short', day:'numeric', month:'short' });
+}
+
+function formatVolume(v) {
+  if (v >= 1000) return (v/1000).toFixed(1) + 't';
+  return v + ' kg';
+}
+
+function showToast(msg, duration=2500) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), duration);
+}
+
+// =============================================
+// DATA LAYER
+// =============================================
+function getSessions() {
+  try { return JSON.parse(localStorage.getItem(KEYS.SESSIONS) || '[]'); }
+  catch { return []; }
+}
+
+function saveSessions(sessions) {
+  // Keep max 365
+  if (sessions.length > 365) sessions = sessions.slice(-365);
+  localStorage.setItem(KEYS.SESSIONS, JSON.stringify(sessions));
+}
+
+function getProfile() {
+  try {
+    const p = JSON.parse(localStorage.getItem(KEYS.PROFILE));
+    if (p) return p;
+  } catch {}
+  // Default profile
+  const def = {
+    id: 'user_profile',
+    name: 'Nico',
+    goal: 'ipertrofia',
+    level: 'intermedio',
+    preferredUnits: 'kg',
+    theme: 'dark',
+    trackDuration: true,
+    trackRPE: false,
+    createdAt: now(),
+    updatedAt: now(),
+    cachedSuggestions: []
+  };
+  saveProfile(def);
+  return def;
+}
+
+function saveProfile(profile) {
+  profile.updatedAt = now();
+  localStorage.setItem(KEYS.PROFILE, JSON.stringify(profile));
+}
+
+function computeMetrics(exercises) {
+  let totalVolume = 0, totalSets = 0, totalReps = 0;
+  for (const ex of exercises) {
+    totalSets += ex.sets;
+    totalReps += ex.sets * ex.reps;
+    totalVolume += ex.sets * ex.reps * (ex.weight || 0);
+  }
+  return { totalVolume, totalSets, totalReps };
+}
+
+// =============================================
+// NAVIGATION
+// =============================================
+let currentView = 'home';
+
+function switchView(view) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('view-' + view).classList.add('active');
+  document.getElementById('tab-' + view).classList.add('active');
+  currentView = view;
+
+  if (view === 'home') renderHome();
+  if (view === 'log') initLogForm();
+  if (view === 'history') renderHistory();
+  if (view === 'ai') initAIView();
+}
+
+// =============================================
+// HOME VIEW
+// =============================================
+function renderHome() {
+  const profile = getProfile();
+  document.getElementById('home-username').textContent = profile.name || 'Nico';
+
+  // Date header
+  const now_d = new Date();
+  document.getElementById('home-date').textContent = now_d.toLocaleDateString('it-IT', {
+    weekday:'long', day:'numeric', month:'long', year:'numeric'
+  });
+
+  const sessions = getSessions();
+  const today = localDateISO();
+
+  // Week boundaries (Mon–Sun)
+  const todayD = new Date(today + 'T00:00:00');
+  const dayOfWeek = todayD.getDay(); // 0=Sun
+  const daysSinceMon = (dayOfWeek + 6) % 7;
+  const weekStart = new Date(todayD);
+  weekStart.setDate(todayD.getDate() - daysSinceMon);
+  const weekStartISO = weekStart.toISOString().split('T')[0];
+
+  // Filter this week
+  const weekSessions = sessions.filter(s => s.date >= weekStartISO);
+  const sessionsThisWeek = weekSessions.length;
+  const volumeThisWeek = weekSessions.reduce((a, s) => a + (s.totalVolume || 0), 0);
+
+  document.getElementById('stat-sessions-week').textContent = sessionsThisWeek;
+  document.getElementById('stat-volume-week').textContent = formatVolume(volumeThisWeek);
+
+  // Streak
+  const streak = computeStreak(sessions);
+  document.getElementById('stat-streak').textContent = streak + (streak > 0 ? '🔥' : '');
+
+  // Last workout
+  const sorted = [...sessions].sort((a,b) => b.date.localeCompare(a.date));
+  if (sorted.length > 0) {
+    const last = sorted[0];
+    document.getElementById('stat-last-workout').innerHTML =
+      `<span style="color:#d4ff00">${formatDate(last.date)}</span><br><span style="font-size:11px;color:#a3a3a3;">${capitalize(last.muscle)}</span>`;
+  } else {
+    document.getElementById('stat-last-workout').textContent = 'Nessuno ancora';
+  }
+
+  // Recent sessions (last 5)
+  const recent = sorted.slice(0, 5);
+  const container = document.getElementById('home-recent');
+  if (recent.length === 0) {
+    container.innerHTML = `<div style="text-align:center;padding:30px 0;color:#666;font-size:14px;">
+      Nessun workout ancora. Inizia oggi! 💪</div>`;
+  } else {
+    container.innerHTML = recent.map(s => renderSessionCard(s, false)).join('');
+  }
+}
+
+function computeStreak(sessions) {
+  if (!sessions.length) return 0;
+  const dates = [...new Set(sessions.map(s => s.date))].sort().reverse();
+  let streak = 0;
+  const today = localDateISO();
+  let check = today;
+  for (const d of dates) {
+    if (d === check) {
+      streak++;
+      const prev = new Date(check + 'T00:00:00');
+      prev.setDate(prev.getDate() - 1);
+      check = prev.toISOString().split('T')[0];
+    } else if (streak === 0 && d < check) {
+      // Allow yesterday to count
+      const yesterday = new Date(today + 'T00:00:00');
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yISO = yesterday.toISOString().split('T')[0];
+      if (d === yISO) {
+        streak++;
+        const prev = new Date(d + 'T00:00:00');
+        prev.setDate(prev.getDate() - 1);
+        check = prev.toISOString().split('T')[0];
+      } else break;
+    } else break;
+  }
+  return streak;
+}
+
+function renderSessionCard(session, expandable=true) {
+  const color = MUSCLE_COLORS[session.muscle] || '#666';
+  const emoji = MUSCLE_EMOJI[session.muscle] || '🏋️';
+  return `
+  <div class="session-item" onclick="${expandable ? `toggleSession('${session.id}')` : `switchView('history')`}">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+      <div>
+        <span class="muscle-badge" style="background:${color}22;color:${color};margin-bottom:6px;">
+          ${emoji} ${capitalize(session.muscle)}
+        </span>
+        <div style="font-size:14px;font-weight:600;margin-top:4px;">${formatDate(session.date)}</div>
+        <div style="font-size:12px;color:#a3a3a3;margin-top:2px;">${session.exercises.length} esercizi · ${session.totalSets} serie</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:18px;font-weight:700;color:#d4ff00;">${session.totalVolume > 0 ? formatVolume(session.totalVolume) : '—'}</div>
+        <div style="font-size:11px;color:#666;">volume</div>
+      </div>
+    </div>
+    ${expandable ? `
+    <div class="session-detail" id="detail-${session.id}">
+      <div style="display:grid;gap:8px;">
+        ${session.exercises.map(ex => `
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:#262626;border-radius:8px;">
+            <div style="font-size:13px;font-weight:500;">${ex.name}</div>
+            <div style="font-size:12px;color:#a3a3a3;">${ex.sets}×${ex.reps} · ${ex.weight}kg</div>
+          </div>
+        `).join('')}
+        ${session.notes ? `<div style="font-size:12px;color:#a3a3a3;padding:4px 0;font-style:italic;">"${session.notes}"</div>` : ''}
+        ${session.duration ? `<div style="font-size:12px;color:#a3a3a3;">⏱️ ${session.duration} min</div>` : ''}
+        <div style="display:flex;justify-content:flex-end;margin-top:4px;">
+          <button class="btn-danger" onclick="event.stopPropagation();deleteSession('${session.id}')">🗑 Elimina</button>
+        </div>
+      </div>
+    </div>` : ''}
+  </div>`;
+}
+
+function toggleSession(id) {
+  const el = document.getElementById('detail-' + id);
+  if (el) el.classList.toggle('open');
+}
+
+function deleteSession(id) {
+  if (!confirm('Eliminare questo workout?')) return;
+  let sessions = getSessions().filter(s => s.id !== id);
+  saveSessions(sessions);
+  renderHistory();
+  renderHome();
+  showToast('🗑 Workout eliminato');
+}
+
+// =============================================
+// LOG WORKOUT VIEW
+// =============================================
+let exerciseRows = [];
+
+function initLogForm() {
+  document.getElementById('log-date').value = localDateISO();
+  const profile = getProfile();
+  document.getElementById('log-goal').value = profile.goal || 'ipertrofia';
+  document.getElementById('log-notes').value = '';
+  document.getElementById('log-duration').value = '';
+  document.getElementById('log-muscle').value = '';
+  exerciseRows = [];
+  renderExerciseRows();
+  addExerciseRow(); // Start with one empty row
+}
+
+function addExerciseRow() {
+  const id = uuid();
+  exerciseRows.push({ id, name:'', sets:3, reps:10, weight:0 });
+  renderExerciseRows();
+}
+
+function removeExerciseRow(id) {
+  exerciseRows = exerciseRows.filter(r => r.id !== id);
+  renderExerciseRows();
+}
+
+function renderExerciseRows() {
+  const container = document.getElementById('exercises-container');
+  const empty = document.getElementById('exercises-empty');
+  if (exerciseRows.length === 0) {
+    container.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+  container.innerHTML = exerciseRows.map((row, idx) => `
+    <div class="exercise-row" id="row-${row.id}">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div style="font-size:12px;font-weight:600;color:#d4ff00;text-transform:uppercase;letter-spacing:0.05em;">Esercizio ${idx+1}</div>
+        ${exerciseRows.length > 1 ? `<button class="btn-danger" onclick="removeExerciseRow('${row.id}')">✕</button>` : ''}
+      </div>
+      <div style="display:grid;gap:8px;">
+        <input type="text" class="input-field" placeholder="Nome esercizio (es. Panca Piana)"
+          value="${row.name}"
+          oninput="updateExRow('${row.id}','name',this.value)" />
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+          <div>
+            <label style="font-size:11px;color:#666;display:block;margin-bottom:4px;">Serie</label>
+            <input type="number" class="input-field" min="1" max="20" value="${row.sets}"
+              oninput="updateExRow('${row.id}','sets',+this.value)" style="text-align:center;" />
+          </div>
+          <div>
+            <label style="font-size:11px;color:#666;display:block;margin-bottom:4px;">Reps</label>
+            <input type="number" class="input-field" min="1" max="50" value="${row.reps}"
+              oninput="updateExRow('${row.id}','reps',+this.value)" style="text-align:center;" />
+          </div>
+          <div>
+            <label style="font-size:11px;color:#666;display:block;margin-bottom:4px;">Peso (kg)</label>
+            <input type="number" class="input-field" min="0" max="999" step="0.5" value="${row.weight}"
+              oninput="updateExRow('${row.id}','weight',+this.value)" style="text-align:center;" />
+          </div>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function updateExRow(id, field, value) {
+  const row = exerciseRows.find(r => r.id === id);
+  if (row) row[field] = value;
+}
+
+function saveWorkout() {
+  const muscle = document.getElementById('log-muscle').value;
+  const goal = document.getElementById('log-goal').value;
+  const date = document.getElementById('log-date').value;
+  const notes = document.getElementById('log-notes').value.trim();
+  const duration = parseInt(document.getElementById('log-duration').value) || undefined;
+
+  if (!muscle) { showToast('⚠️ Seleziona un muscolo'); return; }
+  if (!date) { showToast('⚠️ Seleziona una data'); return; }
+
+  const validExercises = exerciseRows.filter(r => r.name.trim() !== '');
+  if (validExercises.length === 0) { showToast('⚠️ Aggiungi almeno un esercizio'); return; }
+
+  const exercises = validExercises.map(r => ({
+    id: r.id,
+    name: capitalize(r.name.trim()),
+    sets: r.sets || 1,
+    reps: r.reps || 1,
+    weight: r.weight || 0
+  }));
+
+  const metrics = computeMetrics(exercises);
+  const session = {
+    id: uuid(),
+    createdAt: now(),
+    updatedAt: now(),
+    date,
+    muscle,
+    goal,
+    exercises,
+    notes: notes || undefined,
+    duration,
+    ...metrics
+  };
+
+  const sessions = getSessions();
+  sessions.push(session);
+  saveSessions(sessions);
+
+  showToast('✅ Workout salvato!');
+  setTimeout(() => switchView('home'), 1000);
+}
+
+// =============================================
+// HISTORY VIEW
+// =============================================
+let historyFilter = 'all';
+
+function filterHistory(muscle) {
+  historyFilter = muscle;
+  document.querySelectorAll('.filter-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.muscle === muscle);
+  });
+  renderHistory();
+}
+
+function renderHistory() {
+  let sessions = getSessions().sort((a,b) => b.date.localeCompare(a.date));
+  if (historyFilter !== 'all') {
+    sessions = sessions.filter(s => s.muscle === historyFilter);
+  }
+
+  const list = document.getElementById('history-list');
+  const empty = document.getElementById('history-empty');
+
+  if (sessions.length === 0) {
+    list.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+  list.innerHTML = sessions.map(s => renderSessionCard(s, true)).join('');
+}
+
+// =============================================
+// AI VIEW
+// =============================================
+function initAIView() {
+  const profile = getProfile();
+  document.getElementById('ai-goal').value = profile.goal || 'ipertrofia';
+  // Load saved API key
+  const savedKey = localStorage.getItem('workout_monitor:apikey') || '';
+  document.getElementById('ai-apikey').value = savedKey;
+}
+
+function getCacheKey(muscle, goal) { return `${goal}:${muscle}`; }
+
+function getCachedSuggestion(muscle, goal) {
+  const profile = getProfile();
+  const key = getCacheKey(muscle, goal);
+  const cache = (profile.cachedSuggestions || []).find(c => c.key === key);
+  if (!cache) return null;
+  if (new Date(cache.expiresAt) < new Date()) return null; // expired
+  return cache.response;
+}
+
+function setCachedSuggestion(muscle, goal, response) {
+  const profile = getProfile();
+  const key = getCacheKey(muscle, goal);
+  const entry = {
+    key,
+    response,
+    generatedAt: now(),
+    expiresAt: new Date(Date.now() + 24*60*60*1000).toISOString()
+  };
+  let cache = (profile.cachedSuggestions || []).filter(c => c.key !== key);
+  cache.unshift(entry);
+  if (cache.length > 20) cache = cache.slice(0, 20);
+  profile.cachedSuggestions = cache;
+  saveProfile(profile);
+}
+
+async function getAISuggestions() {
+  const muscle = document.getElementById('ai-muscle').value;
+  const goal = document.getElementById('ai-goal').value;
+  const apiKey = document.getElementById('ai-apikey').value.trim();
+
+  if (apiKey) localStorage.setItem('workout_monitor:apikey', apiKey);
+
+  // Check cache
+  const cached = getCachedSuggestion(muscle, goal);
+  if (cached) {
+    document.getElementById('ai-cache-notice').style.display = 'block';
+    renderAISuggestions(cached);
+    return;
+  }
+  document.getElementById('ai-cache-notice').style.display = 'none';
+
+  if (!apiKey) {
+    showToast('⚠️ Inserisci la tua API Key MiniMax');
+    return;
+  }
+
+  // Show loading
+  document.getElementById('ai-loading').style.display = 'block';
+  document.getElementById('ai-results').innerHTML = '';
+  document.getElementById('ai-empty').style.display = 'none';
+  document.getElementById('ai-btn').disabled = true;
+
+  const prompt = `Sei un personal trainer esperto. Fornisci 4-5 esercizi ottimali per ${muscle} con obiettivo ${goal}.
+Rispondi SOLO con un array JSON valido, nessun testo extra. Formato:
+[{"exercise":"nome","sets":"3-4","reps":"8-12","rest":"60-90 sec","notes":"suggerimento breve"}]`;
+
+  try {
+    const response = await fetch('https://api.minimax.io/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: 'MiniMax-Text-01',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.7,
+        max_tokens: 1000
+      })
+    });
+
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    const text = data.choices?.[0]?.message?.content || '';
+
+    // Parse JSON from response
+    const jsonMatch = text.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) throw new Error('No JSON in response');
+    const suggestions = JSON.parse(jsonMatch[0]);
+
+    setCachedSuggestion(muscle, goal, suggestions);
+    renderAISuggestions(suggestions);
+  } catch (err) {
+    console.error('AI Error:', err);
+    // Fallback suggestions
+    const fallback = getFallbackSuggestions(muscle, goal);
+    renderAISuggestions(fallback);
+    document.getElementById('ai-cache-notice').style.display = 'block';
+    document.getElementById('ai-cache-notice').textContent = '⚠️ API non disponibile — suggerimenti di default';
+    showToast('⚠️ Errore API, usando suggerimenti di default');
+  } finally {
+    document.getElementById('ai-loading').style.display = 'none';
+    document.getElementById('ai-btn').disabled = false;
+  }
+}
+
+function getFallbackSuggestions(muscle, goal) {
+  const db = {
+    pettorali: {
+      ipertrofia: [
+        {exercise:'Panca Piana',sets:'4',reps:'8-12',rest:'90 sec',notes:'Controlla la discesa'},
+        {exercise:'Panca Inclinata con manubri',sets:'3',reps:'10-12',rest:'75 sec',notes:'Inclinazione 30-45°'},
+        {exercise:'Croci con manubri',sets:'3',reps:'12-15',rest:'60 sec',notes:'Focus sull\'allungamento'},
+        {exercise:'Dip alle parallele',sets:'3',reps:'10-12',rest:'90 sec',notes:'Leggermente inclinato in avanti'}
+      ],
+      forza: [
+        {exercise:'Panca Piana',sets:'5',reps:'3-5',rest:'3-4 min',notes:'Carico massimale, tecnica perfetta'},
+        {exercise:'Panca Inclinata con bilanciere',sets:'4',reps:'4-6',rest:'2-3 min',notes:'Progressione lineare'},
+        {exercise:'Dip',sets:'4',reps:'5-8',rest:'2 min',notes:'Aggiungere peso con cintura'}
+      ],
+      definizione: [
+        {exercise:'Panca con manubri',sets:'4',reps:'15-20',rest:'45 sec',notes:'Poco riposo, alto volume'},
+        {exercise:'Croci ai cavi',sets:'3',reps:'15-20',rest:'45 sec',notes:'Squeeze nel picco'},
+        {exercise:'Push-up declinati',sets:'3',reps:'15-20',rest:'30 sec',notes:'Full ROM'},
+        {exercise:'Pec Deck',sets:'3',reps:'15-20',rest:'45 sec',notes:'Slow eccentric'}
+      ]
+    },
+    gambe: {
+      ipertrofia: [
+        {exercise:'Squat',sets:'4',reps:'8-12',rest:'90 sec',notes:'Parallelo o sotto'},
+        {exercise:'Leg Press',sets:'4',reps:'10-15',rest:'75 sec',notes:'Piedi alti per quadricipiti'},
+        {exercise:'Romanian Deadlift',sets:'3',reps:'10-12',rest:'90 sec',notes:'Focus posteriore coscia'},
+        {exercise:'Leg Extension',sets:'3',reps:'12-15',rest:'60 sec',notes:'Isola il quadricipite'}
+      ],
+      forza: [
+        {exercise:'Squat',sets:'5',reps:'3-5',rest:'3-4 min',notes:'Tecnica impeccabile'},
+        {exercise:'Leg Press',sets:'4',reps:'5-8',rest:'2-3 min',notes:'Carico elevato'},
+        {exercise:'Stacco rumeno',sets:'4',reps:'5-6',rest:'2-3 min',notes:'Catena posteriore'}
+      ],
+      definizione: [
+        {exercise:'Squat corpo libero',sets:'4',reps:'20-25',rest:'30 sec',notes:'Metabolico'},
+        {exercise:'Affondi cammino',sets:'3',reps:'20',rest:'45 sec',notes:'10 per gamba'},
+        {exercise:'Leg Press veloce',sets:'3',reps:'20-25',rest:'45 sec',notes:'Alto rep'}
+      ]
+    }
+  };
+
+  const muscleData = db[muscle];
+  if (muscleData && muscleData[goal]) return muscleData[goal];
+
+  // Generic fallback
+  return [
+    {exercise:`Esercizio base ${muscle}`,sets:'3-4',reps:'8-12',rest:'90 sec',notes:`Obiettivo: ${goal}`},
+    {exercise:`Esercizio isolamento ${muscle}`,sets:'3',reps:'12-15',rest:'60 sec',notes:'Controllo movimento'},
+    {exercise:`Esercizio composto ${muscle}`,sets:'4',reps:'6-10',rest:'2 min',notes:'Progressione peso'}
+  ];
+}
+
+function renderAISuggestions(suggestions) {
+  const container = document.getElementById('ai-results');
+  const empty = document.getElementById('ai-empty');
+  empty.style.display = 'none';
+  container.innerHTML = suggestions.map((s, i) => `
+    <div class="ai-suggestion-card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+        <div style="font-size:15px;font-weight:600;">${s.exercise}</div>
+        <div style="font-size:11px;color:#d4ff00;font-weight:600;background:rgba(212,255,0,0.1);padding:3px 8px;border-radius:9999px;">#${i+1}</div>
+      </div>
+      <div style="display:flex;gap:16px;margin-bottom:6px;">
+        <div><span style="font-size:11px;color:#666;display:block;">Serie</span><span style="font-size:14px;font-weight:600;">${s.sets}</span></div>
+        <div><span style="font-size:11px;color:#666;display:block;">Reps</span><span style="font-size:14px;font-weight:600;">${s.reps}</span></div>
+        <div><span style="font-size:11px;color:#666;display:block;">Recupero</span><span style="font-size:14px;font-weight:600;">${s.rest}</span></div>
+      </div>
+      ${s.notes ? `<div style="font-size:12px;color:#a3a3a3;font-style:italic;">💡 ${s.notes}</div>` : ''}
+    </div>
+  `).join('');
+}
+
+// =============================================
+// SETTINGS
+// =============================================
+function openSettings() {
+  const profile = getProfile();
+  document.getElementById('settings-name').value = profile.name || '';
+  document.getElementById('settings-goal').value = profile.goal || 'ipertrofia';
+  document.getElementById('settings-level').value = profile.level || 'intermedio';
+  document.getElementById('settings-modal').classList.add('open');
+}
+
+function closeSettings() {
+  document.getElementById('settings-modal').classList.remove('open');
+}
+
+function closeSettingsOutside(e) {
+  if (e.target === document.getElementById('settings-modal')) closeSettings();
+}
+
+function saveSettings() {
+  const profile = getProfile();
+  profile.name = document.getElementById('settings-name').value.trim() || 'Nico';
+  profile.goal = document.getElementById('settings-goal').value;
+  profile.level = document.getElementById('settings-level').value;
+  saveProfile(profile);
+  closeSettings();
+  renderHome();
+  showToast('✅ Profilo aggiornato');
+}
+
+// =============================================
+// UTILS
+// =============================================
+function capitalize(str) {
+  if (!str) return '';
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+// =============================================
+// INIT
+// =============================================
+function init() {
+  getProfile(); // Ensure profile exists
+  renderHome();
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
