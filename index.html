@@ -635,6 +635,17 @@ function todayISO() {
   return localDateISO();
 }
 
+function initLogForm() {
+  document.getElementById('log-date').value = localDateISO();
+  document.getElementById('log-muscle').value = '';
+  document.getElementById('log-goal').value = 'ipertrofia';
+  document.getElementById('log-notes').value = '';
+  document.getElementById('log-duration').value = '';
+  exerciseRows = [{ id: uuid(), name: '', sets: 3, reps: 10, weight: 0 }];
+  renderExerciseRows();
+  delete document.getElementById('workout-form').dataset.editId;
+}
+
 function localDateISO() {
   const d = new Date();
   const y = d.getFullYear();
