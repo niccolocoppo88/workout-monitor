@@ -667,11 +667,25 @@ window.timerSecondsRemaining = 0;
 window.timerStartedAt = null;
 let timerInterval = null;
 
+const TIMER_STORAGE_KEY = 'workout_monitor:timer';
+
+function persistTimerState() {
+  if (window.timerActive) {
+    localStorage.setItem(TIMER_STORAGE_KEY, JSON.stringify({
+      startedAt: window.timerStartedAt,
+      seconds: window.timerSecondsRemaining
+    }));
+  } else {
+    localStorage.removeItem(TIMER_STORAGE_KEY);
+  }
+}
+
 function startRecoveryTimer(durationSeconds) {
   if (timerInterval) clearInterval(timerInterval);
   window.timerActive = true;
   window.timerSecondsRemaining = durationSeconds;
   window.timerStartedAt = Date.now();
+  persistTimerState();
   const badge = document.getElementById('timer-badge');
   badge.classList.remove('done');
   badge.classList.add('active');
@@ -687,6 +701,7 @@ function tickTimer() {
   if (remaining === 0) {
     clearInterval(timerInterval);
     window.timerActive = false;
+    persistTimerState();
     const badge = document.getElementById('timer-badge');
     badge.classList.remove('active');
     badge.classList.add('done');
@@ -1498,15 +1513,39 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 });
 
+function restoreTimerFromStorage() {
+  try {
+    const stored = localStorage.getItem(TIMER_STORAGE_KEY);
+    if (!stored) return;
+    const { startedAt, seconds } = JSON.parse(stored);
+    const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+    const remaining = Math.max(0, seconds - elapsed);
+    if (remaining <= 0) {
+      localStorage.removeItem(TIMER_STORAGE_KEY);
+      return;
+    }
+    window.timerActive = true;
+    window.timerSecondsRemaining = seconds;
+    window.timerStartedAt = startedAt;
+    const badge = document.getElementById('timer-badge');
+    badge.classList.remove('done');
+    badge.classList.add('active');
+    updateTimerDisplayValue(remaining);
+    timerInterval = setInterval(tickTimer, 1000);
+  } catch(e) {}
+}
+
 // =============================================
 // INIT
 // =============================================
 function init() {
   getProfile(); // Ensure profile exists
   renderHome();
+  restoreTimerFromStorage();
 }
 
 document.addEventListener('DOMContentLoaded', init);
+window.addEventListener('storage', restoreTimerFromStorage);
 </script>
 </body>
 </html>
