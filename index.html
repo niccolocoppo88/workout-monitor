@@ -332,6 +332,7 @@
     <div style="padding: 20px 16px 0;">
       <div style="font-size:22px; font-weight:700; letter-spacing:-0.025em; margin-bottom:20px;">📝 Nuovo Workout</div>
 
+      <div id="workout-form">
       <div class="card" style="margin-bottom:16px;">
         <div class="section-header">Data & Contesto</div>
         <div style="display:grid; gap:10px;">
@@ -385,6 +386,7 @@
       <button class="btn-primary" onclick="saveWorkout()" style="margin-bottom:24px;">
         💾 Salva Workout
       </button>
+      </div>
     </div>
   </div>
 
@@ -558,8 +560,7 @@ function uuid() { return crypto.randomUUID(); }
 function now() { return new Date().toISOString(); }
 
 function todayISO() {
-  const d = new Date();
-  return d.toFullYear ? d.toFullYear() : d.toISOString().split('T')[0];
+  return localDateISO();
 }
 
 function localDateISO() {
@@ -772,7 +773,8 @@ function renderSessionCard(session, expandable=true) {
         `).join('')}
         ${session.notes ? `<div style="font-size:12px;color:#a3a3a3;padding:4px 0;font-style:italic;">"${session.notes}"</div>` : ''}
         ${session.duration ? `<div style="font-size:12px;color:#a3a3a3;">⏱️ ${session.duration} min</div>` : ''}
-        <div style="display:flex;justify-content:flex-end;margin-top:4px;">
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:4px;">
+          <button class="btn-secondary" onclick="event.stopPropagation();editSession('${session.id}')">✏️ Modifica</button>
           <button class="btn-danger" onclick="event.stopPropagation();deleteSession('${session.id}')">🗑 Elimina</button>
         </div>
       </div>
@@ -794,27 +796,34 @@ function deleteSession(id) {
   showToast('🗑 Workout eliminato');
 }
 
-// =============================================
-// LOG WORKOUT VIEW
-// =============================================
-let exerciseRows = [];
+function editSession(id) {
+  const sessions = getSessions();
+  const session = sessions.find(s => s.id === id);
+  if (!session) { showToast('❌ Workout non trovato'); return; }
 
-function initLogForm() {
-  document.getElementById('log-date').value = localDateISO();
-  const profile = getProfile();
-  document.getElementById('log-goal').value = profile.goal || 'ipertrofia';
-  document.getElementById('log-notes').value = '';
-  document.getElementById('log-duration').value = '';
-  document.getElementById('log-muscle').value = '';
-  exerciseRows = [];
-  renderExerciseRows();
-  addExerciseRow(); // Start with one empty row
-}
+  // Populate form
+  document.getElementById('log-date').value = session.date;
+  document.getElementById('log-muscle').value = session.muscle;
+  document.getElementById('log-goal').value = session.goal || 'ipertrofia';
+  document.getElementById('log-notes').value = session.notes || '';
+  document.getElementById('log-duration').value = session.duration || '';
 
-function addExerciseRow() {
-  const id = uuid();
-  exerciseRows.push({ id, name:'', sets:3, reps:10, weight:0 });
+  // Load exercises
+  exerciseRows = session.exercises.map(ex => ({
+    id: ex.id || uuid(),
+    name: ex.name,
+    sets: ex.sets,
+    reps: ex.reps,
+    weight: ex.weight
+  }));
   renderExerciseRows();
+
+  // Store editing id for save
+  document.getElementById('workout-form').dataset.editId = id;
+
+  // Switch to log view
+  switchView('log');
+  showToast('✏️ Modifica workout');
 }
 
 function removeExerciseRow(id) {
@@ -890,24 +899,45 @@ function saveWorkout() {
   }));
 
   const metrics = computeMetrics(exercises);
-  const session = {
-    id: uuid(),
-    createdAt: now(),
-    updatedAt: now(),
-    date,
-    muscle,
-    goal,
-    exercises,
-    notes: notes || undefined,
-    duration,
-    ...metrics
-  };
-
+  const editId = document.getElementById('workout-form').dataset.editId;
   const sessions = getSessions();
-  sessions.push(session);
-  saveSessions(sessions);
 
-  showToast('✅ Workout salvato!');
+  if (editId) {
+    const idx = sessions.findIndex(s => s.id === editId);
+    if (idx !== -1) {
+      sessions[idx] = {
+        ...sessions[idx],
+        date,
+        muscle,
+        goal,
+        exercises,
+        notes: notes || undefined,
+        duration,
+        updatedAt: now(),
+        ...metrics
+      };
+    }
+    delete document.getElementById('workout-form').dataset.editId;
+    showToast('✅ Workout aggiornato!');
+  } else {
+    const session = {
+      id: uuid(),
+      createdAt: now(),
+      updatedAt: now(),
+      date,
+      muscle,
+      goal,
+      exercises,
+      notes: notes || undefined,
+      duration,
+      ...metrics
+    };
+    sessions.push(session);
+    showToast('✅ Workout salvato!');
+  }
+
+  saveSessions(sessions);
+  initLogForm();
   setTimeout(() => switchView('home'), 1000);
 }
 
@@ -1158,7 +1188,7 @@ function saveSettings() {
 // =============================================
 function capitalize(str) {
   if (!str) return '';
-  return str.charAt(0).toUpperCase() + str.slice(1);
+  return str.trim().toLowerCase().replace(/^./, c => c.toUpperCase());
 }
 
 // =============================================
