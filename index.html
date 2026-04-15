@@ -300,25 +300,43 @@
     }
     .timer-badge.active { display: block; }
     .timer-badge.done { border-color: #22c55e; color: #22c55e; box-shadow: 0 0 20px rgba(34,197,94,0.2); }
+    /* Photo capture styles */
+    .photo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+    .photo-thumb { position: relative; aspect-ratio: 1; border-radius: 8px; overflow: hidden; background: #262626; }
+    .photo-thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .photo-thumb .del-photo { position: absolute; top: 4px; right: 4px; background: rgba(0,0,0,0.6); border: none; border-radius: 9999px; width: 20px; height: 20px; color: #fff; font-size: 12px; cursor: pointer; }
+    /* Rest timer banner */
+    .rest-timer-banner {
+      position: fixed;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100%;
+      max-width: 480px;
+      background: linear-gradient(135deg, #1a1a1a, #262626);
+      border-bottom: 2px solid #d4ff00;
+      padding: 12px 20px;
+      display: none;
+      z-index: 400;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .rest-timer-banner.active { display: flex; }
+    .rest-timer-label { font-size: 12px; color: #a3a3a3; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; }
+    .rest-timer-countdown { font-size: 36px; font-weight: 700; color: #d4ff00; font-variant-numeric: tabular-nums; }
+    .rest-timer-skip { background: transparent; border: 1px solid #666; border-radius: 8px; color: #a3a3a3; font-size: 12px; padding: 6px 12px; cursor: pointer; font-family: 'Inter', sans-serif; }
+    .rest-timer-skip:hover { background: #262626; }
+    /* History modal - full screen */
     .history-modal {
       display: none;
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.7);
-      z-index: 400;
-      align-items: flex-end;
-      justify-content: center;
-    }
-    .history-modal.open { display: flex; }
-    .history-panel {
-      background: #1a1a1a;
-      border-radius: 20px 20px 0 0;
-      padding: 24px 20px 60px;
-      width: 100%;
-      max-width: 480px;
-      max-height: 90vh;
+      background: #0f0f0f;
+      z-index: 500;
       overflow-y: auto;
     }
+    .history-modal.open { display: block; }
+    .history-modal-header { position: sticky; top: 0; background: #0f0f0f; padding: 16px; border-bottom: 1px solid #262626; display: flex; justify-content: space-between; align-items: center; z-index: 501; }
   </style>
 </head>
 <body>
@@ -423,11 +441,10 @@
       </div>
 
       <div class="card" style="margin-bottom:20px;">
-        <div class="section-header">📷 Foto Progresso (opzionale)</div>
-        <input type="file" id="log-photo" accept="image/*" capture="environment" class="input-field" style="padding:8px;" />
-        <div id="log-photo-preview" style="margin-top:8px; display:none;">
-          <img id="photo-preview-img" style="max-width:200px; max-height:150px; border-radius:8px; object-fit:cover;" />
-        </div>
+        <div class="section-header">📸 Progress Photos (opzionale)</div>
+        <input type="file" id="photo-input" accept="image/*" capture="environment" style="display:none;" onchange="handlePhotoCapture(this)" />
+        <button class="btn-secondary" onclick="document.getElementById('photo-input').click()" style="margin-bottom:10px;">📷 Aggiungi Foto</button>
+        <div class="photo-grid" id="photo-grid"></div>
       </div>
 
       <button class="btn-primary" onclick="saveWorkout()" style="margin-bottom:24px;">
@@ -542,6 +559,24 @@
   </nav>
 </div>
 
+<!-- Rest Timer Banner -->
+<div class="rest-timer-banner" id="rest-timer-banner">
+  <div>
+    <div class="rest-timer-label">⏱️ Recupero</div>
+    <div class="rest-timer-countdown" id="rest-timer-countdown">0:00</div>
+  </div>
+  <button class="rest-timer-skip" onclick="skipRestTimer()">Salta ↗</button>
+</div>
+
+<!-- History Session Modal -->
+<div class="history-modal" id="history-modal">
+  <div class="history-modal-header">
+    <button onclick="closeHistoryModal()" style="background:#262626;border:none;border-radius:8px;color:#f5f5f5;font-size:14px;padding:8px 16px;cursor:pointer;">← Chiudi</button>
+    <button id="modal-edit-btn" onclick="editFromModal()" style="background:#d4ff00;border:none;border-radius:8px;color:#0f0f0f;font-size:14px;font-weight:600;padding:8px 16px;cursor:pointer;">✏️ Modifica</button>
+  </div>
+  <div style="padding:20px 16px;" id="history-modal-content"></div>
+</div>
+
 <!-- Settings Modal -->
 <div class="settings-modal" id="settings-modal" onclick="closeSettingsOutside(event)">
   <div class="settings-panel">
@@ -589,20 +624,6 @@
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
-<!-- Timer Badge (fixed above tab bar) -->
-<div class="timer-badge" id="timer-badge">⏱️ <span id="timer-display">00:00</span></div>
-
-<!-- History Modal -->
-<div class="history-modal" id="history-modal" onclick="closeHistoryModalOutside(event)">
-  <div class="history-panel">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-      <div style="font-size:18px; font-weight:700;" id="history-modal-title">Dettaglio Workout</div>
-      <button onclick="closeHistoryModal()" style="background:#262626; border:none; border-radius:9999px; width:32px; height:32px; cursor:pointer; color:#f5f5f5; font-size:16px;">✕</button>
-    </div>
-    <div id="history-modal-content"></div>
-  </div>
-</div>
-
 <script>
 // =============================================
 // CONSTANTS & UTILS
@@ -635,15 +656,27 @@ function todayISO() {
   return localDateISO();
 }
 
+// =============================================
+// LOG VIEW FORM
+// =============================================
+let exerciseRows = [];
+
 function initLogForm() {
   document.getElementById('log-date').value = localDateISO();
   document.getElementById('log-muscle').value = '';
-  document.getElementById('log-goal').value = 'ipertrofia';
+  document.getElementById('log-goal').value = getProfile().goal || 'ipertrofia';
   document.getElementById('log-notes').value = '';
   document.getElementById('log-duration').value = '';
   exerciseRows = [{ id: uuid(), name: '', sets: 3, reps: 10, weight: 0 }];
+  window.pendingPhotos = [];
   renderExerciseRows();
+  renderPhotoGrid();
   delete document.getElementById('workout-form').dataset.editId;
+}
+
+function addExerciseRow() {
+  exerciseRows.push({ id: uuid(), name: '', sets: 3, reps: 10, weight: 0 });
+  renderExerciseRows();
 }
 
 function localDateISO() {
@@ -916,6 +949,9 @@ function computeMetrics(exercises) {
 // NAVIGATION
 // =============================================
 let currentView = 'home';
+let currentEditingId = null; // for history modal
+let restTimerInterval = null;
+let restTimerRemaining = 0;
 
 function switchView(view) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
